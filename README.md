@@ -101,6 +101,7 @@ Everything is in `enclosure/`. The STLs already lie the way they print.
 | `sun.stl`, `cloud.stl` | the emblem, 0.6 mm inlays in the front |
 | `back.stl` | the lid, with keyholes for the wall |
 | `fit-test.stl` | the front's first 4 mm, a 15-minute print to check the fit first |
+| `stand.stl` | a desk stand to put the case in, as an alternative to the wall (see below) |
 
 ### Printing in color (Bambu Studio with AMS)
 
@@ -120,12 +121,25 @@ The color only changes in the first three layers at 0.2 mm, so very little filam
 4. On the wall, put two **3.5 mm countersunk screws** (for example Spax 3.5 × 25) **110 mm apart** at the same height, with their heads standing **4–5 mm** off the wall.
 5. Hang the case on them and let it drop into place.
 
+### Desk stand
+
+![The case in its stand](enclosure/stand.png)
+
+To stand the display on a desk instead of hanging it, print `enclosure/stand.stl`. It is one piece, printed as it stands, without supports. The case drops in from above and leans back 15°:
+
+- A low lip in front holds the case and stays below the image.
+- A rest behind supports it, and a foot keeps it from tipping when you tap the screen.
+- Walls on the left and right follow the case's rounded corners, with 0.4 mm of play, so it can't slide sideways.
+- The cable leaves the case at the bottom right and lies in a channel in the cradle's floor, hidden under the case. In the middle, the channel turns toward the back in a wide curve and runs out under the foot.
+- Lay the cable into the channel before putting the case in. It leaves at the back, in the middle.
+
 ### Changing the case
 
-The case is built in code with [build123d](https://build123d.readthedocs.io). Every dimension is a named value at the top of `enclosure/enclosure.py`: the board's measurements, where the image sits on the board, wall thickness, the wing, the screws, the cable. After changing one, rebuild the STLs and the preview:
+The case is built in code with [build123d](https://build123d.readthedocs.io). Every dimension is a named value at the top of `enclosure/enclosure.py`: the board's measurements, where the image sits on the board, wall thickness, the wing, the screws, the cable. The stand's tilt, lip, rest and foot are at the top of `enclosure/stand.py`; it takes the case's dimensions from `enclosure.py`. After changing anything, rebuild the STLs and the previews:
 
 ```sh
 uv run --no-project --python 3.12 --with build123d python enclosure/enclosure.py
+uv run --no-project --python 3.12 --with build123d python enclosure/stand.py
 uv run --no-project --python 3.12 --with trimesh --with rtree --with pillow --with numpy --with scipy python enclosure/render.py
 ```
 

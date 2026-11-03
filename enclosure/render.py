@@ -1,6 +1,7 @@
-"""Renders the case's STLs into enclosure/case.png: ray-traced orthographic
+"""Renders the case's STLs into enclosure/case.png (ray-traced orthographic
 views of the front, the front at an angle, the case open, and the lid from
-the wall's side. No OpenGL needed.
+the wall's side) and enclosure/stand.png (the case in its stand, and the
+stand alone from behind and below). No OpenGL needed.
 
     uv run --no-project --python 3.12 --with trimesh --with rtree --with pillow \\
         --with numpy --with scipy python enclosure/render.py
@@ -8,12 +9,20 @@ the wall's side. No OpenGL needed.
 
 from pathlib import Path
 
+import json
+
 import numpy as np
 import trimesh
 from PIL import Image
 
 HERE = Path(__file__).resolve().parent
-COLORS = {"front": (58, 58, 62), "sun": (245, 197, 66), "cloud": (240, 240, 240), "back": (110, 110, 118)}
+COLORS = {
+    "front": (58, 58, 62),
+    "sun": (245, 197, 66),
+    "cloud": (240, 240, 240),
+    "back": (110, 110, 118),
+    "stand": (150, 150, 156),
+}
 
 
 def load(names, shift=None):
@@ -24,6 +33,9 @@ def load(names, shift=None):
     meshes = []
     for name in names:
         mesh = trimesh.load(HERE / f"{name}.stl")
+        if name == "stand":
+            meshes.append((name, mesh))
+            continue
         if name != "back":
             flip = np.eye(4)
             flip[1, 1], flip[2, 2] = -1, -1
@@ -63,6 +75,26 @@ def render(meshes, direction, up, res=0.25, pad=6):
     return Image.fromarray(np.clip(image, 0, 255).astype(np.uint8).reshape(h, w, 3))
 
 
+def in_stand(meshes):
+    """The case's parts moved into the stand, as stand.py placed them."""
+    matrix = np.array(json.loads((HERE / "stand.json").read_text())["case"])
+    for _, mesh in meshes:
+        mesh.apply_transform(matrix)
+    return meshes
+
+
+def grid(views, columns, path):
+    cell_w = max(v.width for v in views)
+    rows = [views[i : i + columns] for i in range(0, len(views), columns)]
+    heights = [max(v.height for v in row) for row in rows]
+    canvas = Image.new("RGB", (cell_w * columns, sum(heights)), "white")
+    for r, row in enumerate(rows):
+        for c, view in enumerate(row):
+            canvas.paste(view, (c * cell_w, sum(heights[:r])))
+    canvas.save(path)
+    print(path)
+
+
 def main():
     front = ["front", "sun", "cloud"]
     views = [
@@ -71,13 +103,17 @@ def main():
         render(load(front + ["back"], {"back": (0, 0, -30)}), (0.5, 0.35, 1), (0, 1, 0)),
         render(load(["back"]), (0, 0, 1), (0, 1, 0)),
     ]
-    cell_w = max(v.width for v in views)
-    top = max(views[0].height, views[1].height)
-    canvas = Image.new("RGB", (cell_w * 2, top + max(views[2].height, views[3].height)), "white")
-    for i, view in enumerate(views):
-        canvas.paste(view, ((i % 2) * cell_w, (i // 2) * top))
-    canvas.save(HERE / "case.png")
-    print(HERE / "case.png")
+    grid(views, 2, HERE / "case.png")
+
+    # The stand: y runs back from the front edge, z up.
+    assembled = in_stand(load(front + ["back"])) + load(["stand"])
+    views = [
+        render(assembled, (0.45, 0.6, -0.55), (0, 0, 1)),
+        render(assembled, (1, 0, 0), (0, 0, 1)),
+        render(load(["stand"]), (-0.5, -0.8, -0.6), (0, 0, 1)),
+        render(load(["stand"]), (0.3, -0.5, 1), (0, 1, 0)),
+    ]
+    grid(views, 2, HERE / "stand.png")
 
 
 if __name__ == "__main__":
