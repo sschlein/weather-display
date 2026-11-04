@@ -9,6 +9,8 @@ image), a rest behind, and walls left and right that hold it from sliding
 sideways. The cable leaves the case at the bottom right and
 lies in a channel in the cradle's floor, hidden under the case; in the
 middle it turns toward the back in a wide curve and leaves under the foot.
+Where the channel passes the rest, a slot goes through it: the channel is
+open from above all along, so no plug has to go through.
 
     uv run --no-project --python 3.12 --with build123d python enclosure/stand.py
 
@@ -26,24 +28,33 @@ import enclosure as case
 OUT = Path(__file__).resolve().parent
 
 TILT = 15.0  # degrees back from upright
-FIT = 0.4  # case to cradle, front and back
-FLOOR = 16.0  # under the case's front edge, along the case: room for the channel
-LIP_H, LIP_T = 3.5, 3.0  # in front of the case: below the image's edge
-REST_H, REST_T = 32.0, 5.0  # behind the case
-SIDE_H, SIDE_T = 15.0, 3.0  # walls left and right: the case can't slide out sideways
-FOOT_DEPTH, FOOT_T = 62.0, 5.0  # from the front, so tapping doesn't tip it over
+FIT = 0.4  # case to cradle, all round
+WALL = 3.0  # lip, rest, side walls and foot
+LIP_H = 3.5  # in front of the case: below the image's edge
+REST_H = 30.0  # behind the case
+SIDE_H = 12.0  # walls left and right: the case can't slide out sideways
+FOOT_DEPTH = 55.0  # from the front, so tapping doesn't tip it over
+FOOT_CORNER = 6.0
 
 CHANNEL_W = case.CABLE_D + 0.8
-CHANNEL_DEPTH = 9.0  # the cable bends from down into the channel: room for it
+CHANNEL_DEPTH = case.CABLE_D + 2.4  # the cable bends from down into the channel
+CHANNEL_FLOOR = 2.0  # under the channel, at its lowest under the case
 TURN = 12.0  # the channel's turn toward the back
+OPEN_FROM = 2.0  # behind this (t, from the case's back), the slot through the rest
+# Where the case's cable leaves it: x from its left edge, t from its back.
+CABLE_X = case.CAV_W - case.CABLE_FROM_WALL - case.CABLE_D / 2 - case.X0
+CABLE_T = case.LID + case.CABLE_D / 2 + 1.0
 
 T = radians(TILT)
+# Under the case's front edge, along the case: just enough for the channel
+# and the floor under it.
+FLOOR = (CHANNEL_FLOOR + CHANNEL_DEPTH * cos(T) - CABLE_T * sin(T) + (case.D + FIT + WALL) * sin(T)) / cos(T)
 UP = (0.0, sin(T), cos(T))  # along the case, toward its top
 OUT_DIR = (0.0, -cos(T), sin(T))  # out of the case's front
 # The cradle's own frame: x along the case's width, y up the case, z out of
 # its front; origin at the case's bottom back left edge. Placed so the front
 # edge of the floor sits on the table at y = 0.
-s0, t0 = -FLOOR, case.D + LIP_T
+s0, t0 = -FLOOR, case.D + FIT + WALL
 ORIGIN = tuple(-(s0 * UP[i] + t0 * OUT_DIR[i]) for i in range(3))
 CRADLE = Plane(origin=ORIGIN, x_dir=(1, 0, 0), z_dir=OUT_DIR)
 
@@ -54,25 +65,25 @@ def local_box(x0, x1, y0, y1, z0, z1):
 
 def stand():
     w, d = case.W, case.D
-    x0, x1 = -FIT - SIDE_T, w + FIT + SIDE_T
-    body = local_box(x0, x1, -FLOOR, SIDE_H, -REST_T, d + LIP_T)
-    body += local_box(x0, x1, SIDE_H - 1, REST_H, -REST_T, 0)
-    body += Pos(x0, 0, 0) * Box(x1 - x0, FOOT_DEPTH, FOOT_T, align=(Align.MIN, Align.MIN, Align.MIN))
+    x0, x1 = -FIT - WALL, w + FIT + WALL
+    body = local_box(x0, x1, -FLOOR, SIDE_H, -FIT - WALL, d + FIT + WALL)
+    body += local_box(x0, x1, SIDE_H - 1, REST_H, -FIT - WALL, 0)
+    foot = RectangleRounded(x1 - x0, FOOT_DEPTH + FOOT_CORNER, FOOT_CORNER, align=(Align.MIN, Align.MIN))
+    body += Pos(x0, -FOOT_CORNER, 0) * extrude(foot, WALL)
     # Flat on the table.
-    body &= Pos(x0, 0, 0) * Box(x1 - x0, 500, 500, align=(Align.MIN, Align.CENTER, Align.MIN))
+    body &= Pos(x0, 0, 0) * Box(x1 - x0, 500, 500, align=(Align.MIN, Align.MIN, Align.MIN))
 
     # The case, with its rounded corners and a little play all round; above
     # the lip, its front.
     outline = RectangleRounded(w + 2 * FIT, 400, case.CORNER + FIT, align=(Align.MIN, Align.MIN))
     body -= CRADLE * Pos(-FIT, 0, -FIT) * extrude(outline, d + 2 * FIT)
-    body -= local_box(-FIT, w + FIT, LIP_H, 200, d, d + LIP_T + 1)
+    body -= local_box(-FIT, w + FIT, LIP_H, 200, d, d + FIT + WALL + 1)
 
     # The channel: from under the case's cable exit along the floor to the
     # middle, then toward the back, down the floor's slope and out under the
     # foot. The case's cable leaves at x (from its left edge) and t (from
     # its back), going down.
-    cable_x = case.CAV_W - case.CABLE_FROM_WALL - case.CABLE_D / 2 - case.X0
-    cable_t = case.LID + case.CABLE_D / 2 + 1.0
+    cable_x, cable_t = CABLE_X, CABLE_T
     mid = w / 2
     path = FilletPolyline((cable_x + 0.6, cable_t), (mid, cable_t), (mid, -200), radius=TURN)
     channel = extrude(trace(path, CHANNEL_W), CHANNEL_DEPTH + 1)
@@ -80,6 +91,17 @@ def stand():
     # from just above the floor down into it.
     floor = Plane(origin=CRADLE.origin + CRADLE.y_dir * 1.0, x_dir=(1, 0, 0), z_dir=-CRADLE.y_dir)
     body -= floor * channel
+    # Under the rest the channel would be a tunnel, and no plug fits through
+    # it: a slot through the rest opens it from above, so the cable lies in
+    # from above all along.
+    height = CHANNEL_DEPTH + REST_H + 10
+    slot = extrude(trace(path, CHANNEL_W), -height) & Pos(-50, -400, -height - 1) * Box(
+        w + 100, 400 + OPEN_FROM, height + 2, align=(Align.MIN, Align.MIN, Align.MIN)
+    )
+    channel_bottom = Plane(
+        origin=CRADLE.origin - CRADLE.y_dir * CHANNEL_DEPTH, x_dir=(1, 0, 0), z_dir=-CRADLE.y_dir
+    )
+    body -= channel_bottom * slot
     # Out under the foot, from where the sloping channel reaches the table.
     reach = CRADLE.from_local_coords((mid, -CHANNEL_DEPTH, cable_t - TURN)).Y
     body -= Pos(mid - CHANNEL_W / 2, reach, -1) * Box(

@@ -131,7 +131,7 @@ To stand the display on a desk instead of hanging it, print `enclosure/stand.stl
 - A rest behind supports it, and a foot keeps it from tipping when you tap the screen.
 - Walls on the left and right follow the case's rounded corners, with 0.4 mm of play, so it can't slide sideways.
 - The cable leaves the case at the bottom right and lies in a channel in the cradle's floor, hidden under the case. In the middle, the channel turns toward the back in a wide curve and runs out under the foot.
-- Lay the cable into the channel before putting the case in. It leaves at the back, in the middle.
+- Lay the cable into the channel before putting the case in. A slot through the rest keeps the channel open from above all along, so no plug has to go through. It leaves at the back, in the middle.
 
 ### Changing the case
 
